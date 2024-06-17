@@ -146,7 +146,6 @@ impl Lexer {
                 name = self.get_ident();
             }
             let tok = self.get_keyword(&name);
-            let prev_line = self.line;
             self.skip_whitespace();
 
             if let Token::Ident(str) = tok {
@@ -685,7 +684,7 @@ impl Lexer {
             if self.chr == '\n' {
                 self.line += 1;
                 match self.prev_token {
-                    Token::Ident(_) | Token::Int(_) | Token::Float(_) | Token::Rune(_) | Token::String(_) | Token::Break | Token::Continue | Token::Fallthrough | Token::Return | Token::PlusPlus | Token::MinusMinus | Token::RParen | Token::RBrace | Token::RBrace => {
+                    Token::Ident(_) | Token::Int(_) | Token::Float(_) | Token::Rune(_) | Token::String(_) | Token::Break | Token::Continue | Token::Fallthrough | Token::Return | Token::PlusPlus | Token::MinusMinus | Token::RParen | Token::RBrace | Token::RBrack => {
                         self.chr = ';';
                         return
                     }
