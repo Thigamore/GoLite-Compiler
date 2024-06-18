@@ -131,20 +131,7 @@ impl Lexer {
 
         // Keywords and Identifiers
         if self.chr.is_alphabetic() {
-           let name;
-            if self.chr == 'r' {
-                self.next_char();
-                if self.chr == '"' {
-                    let temp = self.get_string();
-                    self.next_char();
-                    self.skip_whitespace();
-                    return Token::String(temp);
-                } else {
-                    name = "r".to_owned() + &self.get_ident();
-                }
-            } else {
-                name = self.get_ident();
-            }
+            let name = self.get_ident();
             let tok = self.get_keyword(&name);
             self.skip_whitespace();
 
@@ -238,6 +225,12 @@ impl Lexer {
                 }
             }
             return self.get_operator();
+        }
+        // Raw String
+        else if self.chr == '`' {
+            self.next_char();
+            let str = self.get_string();
+            return Token::String(str);
         }
         // Strings
         else if self.chr == '"' {
