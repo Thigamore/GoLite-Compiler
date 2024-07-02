@@ -3,7 +3,7 @@ use std::{
     io::{BufReader, Read},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Token {
     // Keywords
     Break,
@@ -91,6 +91,7 @@ pub enum Token {
     Float(f32),
     Rune(char),
     String(String),
+    Bool(bool),
 
     // Error(string, line)
     Error(String, i32),
@@ -99,7 +100,122 @@ pub enum Token {
     Ident(String),
     BlankIdent,
     EOF,
-    Empty
+    Empty,
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Int(l0), Self::Int(r0)) => l0 == r0,
+            (Self::Float(l0), Self::Float(r0)) => l0 == r0,
+            (Self::Rune(l0), Self::Rune(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+            (Self::Error(l0, l1), Self::Error(r0, r1)) => l0 == r0 && l1 == r1,
+            (Self::Ident(l0), Self::Ident(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+impl Clone for Token {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Break => Self::Break,
+            Self::Case => Self::Case,
+            Self::Chan => Self::Chan,
+            Self::Const => Self::Const,
+            Self::Continue => Self::Continue,
+            Self::Default => Self::Default,
+            Self::Defer => Self::Defer,
+            Self::Else => Self::Else,
+            Self::Fallthrough => Self::Fallthrough,
+            Self::Func => Self::Func,
+            Self::For => Self::For,
+            Self::Go => Self::Go,
+            Self::Goto => Self::Goto,
+            Self::If => Self::If,
+            Self::Import => Self::Import,
+            Self::Interface => Self::Interface,
+            Self::Map => Self::Map,
+            Self::Package => Self::Package,
+            Self::Range => Self::Range,
+            Self::Return => Self::Return,
+            Self::Select => Self::Select,
+            Self::Struct => Self::Struct,
+            Self::Switch => Self::Switch,
+            Self::Type => Self::Type,
+            Self::Var => Self::Var,
+            Self::Print => Self::Print,
+            Self::Println => Self::Println,
+            Self::Append => Self::Append,
+            Self::Len => Self::Len,
+            Self::Cap => Self::Cap,
+            Self::Plus => Self::Plus,
+            Self::Minus => Self::Minus,
+            Self::Aster => Self::Aster,
+            Self::FSlash => Self::FSlash,
+            Self::Percent => Self::Percent,
+            Self::Amper => Self::Amper,
+            Self::Or => Self::Or,
+            Self::Xor => Self::Xor,
+            Self::LShift => Self::LShift,
+            Self::RShift => Self::RShift,
+            Self::AndNot => Self::AndNot,
+            Self::PlusEqual => Self::PlusEqual,
+            Self::MinusEqual => Self::MinusEqual,
+            Self::TimesEqual => Self::TimesEqual,
+            Self::DivEqual => Self::DivEqual,
+            Self::ModEqual => Self::ModEqual,
+            Self::AndEqual => Self::AndEqual,
+            Self::OrEqual => Self::OrEqual,
+            Self::XorEqual => Self::XorEqual,
+            Self::LShiftEqual => Self::LShiftEqual,
+            Self::RShiftEqual => Self::RShiftEqual,
+            Self::AndNotEqual => Self::AndNotEqual,
+            Self::LogAnd => Self::LogAnd,
+            Self::LogOr => Self::LogOr,
+            Self::LArrow => Self::LArrow,
+            Self::PlusPlus => Self::PlusPlus,
+            Self::MinusMinus => Self::MinusMinus,
+            Self::EqualEqual => Self::EqualEqual,
+            Self::Less => Self::Less,
+            Self::Greater => Self::Greater,
+            Self::Equal => Self::Equal,
+            Self::Bang => Self::Bang,
+            Self::BangEqual => Self::BangEqual,
+            Self::LessEqual => Self::LessEqual,
+            Self::GreaterEqual => Self::GreaterEqual,
+            Self::Assignment => Self::Assignment,
+            Self::Dots => Self::Dots,
+            Self::LParen => Self::LParen,
+            Self::RParen => Self::RParen,
+            Self::LBrack => Self::LBrack,
+            Self::RBrack => Self::RBrack,
+            Self::LBrace => Self::LBrace,
+            Self::RBrace => Self::RBrace,
+            Self::Comma => Self::Comma,
+            Self::Period => Self::Period,
+            Self::Semicolon => Self::Semicolon,
+            Self::Colon => Self::Colon,
+            Self::Int(arg0) => Self::Int(arg0.clone()),
+            Self::Float(arg0) => Self::Float(arg0.clone()),
+            Self::Rune(arg0) => Self::Rune(arg0.clone()),
+            Self::String(arg0) => Self::String(arg0.clone()),
+            Self::Bool(arg0) => Self::Bool(arg0.clone()),
+            Self::Error(arg0, arg1) => Self::Error(arg0.clone(), arg1.clone()),
+            Self::Ident(arg0) => Self::Ident(arg0.clone()),
+            Self::BlankIdent => Self::BlankIdent,
+            Self::EOF => Self::EOF,
+            Self::Empty => Self::Empty,
+        }
+    }
+}
+
+impl Token {
+    pub fn same_type(&self, other: &Self) -> bool {
+        return core::mem::discriminant(self) == core::mem::discriminant(other);
+    }
 }
 
 pub struct Lexer {
@@ -108,25 +224,41 @@ pub struct Lexer {
     end: bool,
     line: i32,
     prev_token: Token,
+    peek_tok: Token,
 }
 
 impl Lexer {
     pub fn new(mut reader: BufReader<fs::File>) -> Self {
         let mut buf: [u8; 1] = [0];
         let end = reader.read(&mut buf).expect("Couldn't read file") == 0;
-        return Self {
+        let mut lex = Self {
             reader,
             end,
             chr: buf[0] as char,
             line: 0,
-            prev_token: Token::Empty
+            prev_token: Token::Empty,
+            peek_tok: Token::Empty,
         };
+        lex.next_token();
+        return lex;
+    }
+
+    pub fn eat(&mut self, tok: &Token) {
+        if !self.peek().same_type(tok) {
+            panic!("Expected: {:?}; Got{:?}", self.peek(), tok);
+        }
+    }
+
+    pub fn peek(&mut self) -> &Token {
+        return &self.peek_tok;
     }
 
     // Returns the next token in the token stream
     pub fn next_token(&mut self) -> Token {
+        let out = self.peek_tok.clone();
         if self.end {
-            return Token::EOF;
+            self.peek_tok = Token::EOF;
+            return out;
         }
 
         // Keywords and Identifiers
@@ -139,9 +271,11 @@ impl Lexer {
                 if str == "_" {
                     return Token::BlankIdent;
                 }
-                return Token::Ident(name);
+                self.peek_tok = Token::Ident(name);
+                return out;
             } else {
-                return tok;
+                self.peek_tok = tok;
+                return out;
             }
         }
         // Numbers
@@ -153,19 +287,22 @@ impl Lexer {
                         self.next_char();
                         let num = self.get_number(2);
                         self.skip_whitespace();
-                        return Token::Int(num);
+                        self.peek_tok = Token::Int(num);
+                        return out;
                     }
                     'x' | 'X' => {
                         self.next_char();
                         let num = self.get_number(16);
                         self.skip_whitespace();
-                        return Token::Int(num);
+                        self.peek_tok = Token::Int(num);
+                        return out;
                     }
                     'o' | 'O' => {
                         self.next_char();
                         let num = self.get_number(8);
                         self.skip_whitespace();
-                        return Token::Int(num);
+                        self.peek_tok = Token::Int(num);
+                        return out;
                     }
                     _ => {}
                 }
@@ -177,13 +314,15 @@ impl Lexer {
                 self.next_char();
                 let decimal = self.get_number(10);
                 self.skip_whitespace();
-                return Token::Float(
+                self.peek_tok = Token::Float(
                     (num.to_string() + "." + &decimal.to_string())
                         .parse()
                         .unwrap(),
                 );
+                return out;
             }
-            return Token::Int(num);
+            self.peek_tok = Token::Int(num);
+            return out;
         }
         // Operators
         else if self.chr.is_ascii_punctuation() {
@@ -198,39 +337,46 @@ impl Lexer {
                         self.next_char();
                         let decimal = self.get_number(10);
                         self.skip_whitespace();
-                        return Token::Float(
-                            ("-".to_owned() + &num.to_string()+ "." + &decimal.to_string())
+                        self.peek_tok = Token::Float(
+                            ("-".to_owned() + &num.to_string() + "." + &decimal.to_string())
                                 .parse()
                                 .unwrap(),
                         );
+                        return out;
                     }
-                    return Token::Int(-1 * num);
+                    self.peek_tok =  Token::Int(-1 * num);
+                    return out;
                 } else {
                     match self.chr {
                         '=' => {
                             self.next_char();
                             self.skip_whitespace();
-                            return Token::MinusEqual;
+                            self.peek_tok = Token::MinusEqual;
+                            return out;
                         }
                         '-' => {
                             self.next_char();
                             self.skip_whitespace();
-                            return Token::MinusMinus;
+                            self.peek_tok=  Token::MinusMinus;
+                            return out;
                         }
                         _ => {
                             self.skip_whitespace();
-                            return Token::Minus;
+                            self.peek_tok = Token::Minus;
+                            return out;
                         }
                     }
                 }
             }
-            return self.get_operator();
+            self.peek_tok =  self.get_operator();
+            return out;
         }
         // Raw String
         else if self.chr == '`' {
             self.next_char();
             let str = self.get_string();
-            return Token::String(str);
+            self.peek_tok = Token::String(str);
+            return out;
         }
         // Strings
         else if self.chr == '"' {
@@ -238,7 +384,8 @@ impl Lexer {
             let str = self.get_interpreted_string();
             self.next_char();
             self.skip_whitespace();
-            return Token::String(str);
+            self.peek_tok =  Token::String(str);
+            return out;
         }
         // Rune
         else if self.chr == '\'' {
@@ -247,32 +394,38 @@ impl Lexer {
                 self.next_char();
                 let chr = self.get_escape();
                 if chr == '0' {
-                    return Token::Error(chr.to_string(), self.line);
+                    self.peek_tok = Token::Error(chr.to_string(), self.line);
+                    return out;
                 }
                 self.next_char();
                 self.skip_whitespace();
-                return Token::Rune(chr);
+                self.peek_tok = Token::Rune(chr);
+                return out;
             }
             let temp = self.chr;
             self.next_char();
             self.skip_whitespace();
-            return Token::Rune(temp);
+            self.peek_tok = Token::Rune(temp);
+            return out;
         }
         // EOF
         else if self.chr == '\0' {
             self.end = true;
-            return Token::EOF;
+            self.peek_tok = Token::EOF;
+            return out;
         }
         // whitespace
         else if self.chr == ' ' || self.chr == '\n' {
             self.skip_whitespace();
-            return self.next_token();
+            self.peek_tok = self.next_token();
+            return out;
         }
         // Error if ever gets here
         let temp = self.chr;
         let line = self.line;
         self.next_char();
-        return Token::Error(temp.to_string(), line);
+        self.peek_tok = Token::Error(temp.to_string(), line);
+        return out;
     }
 
     fn get_ident(&mut self) -> String {
@@ -322,28 +475,16 @@ impl Lexer {
 
     fn get_escape(&mut self) -> char {
         match self.chr {
-                    'n' => {
-                        return '\n'
-                    }
-                    '\\' => {
-                        return '\\'
-                    }
-                    't' => {
-                        return '\t'
-                    }
-                    'r' => {
-                        return '\r'
-                    }
-                    '\'' => {
-                        return '\'';
-                    }
-                    '"' => {
-                        return '"'
-                    }
-                    _ => {
-                        return '0'
-                    }
-                }
+            'n' => return '\n',
+            '\\' => return '\\',
+            't' => return '\t',
+            'r' => return '\r',
+            '\'' => {
+                return '\'';
+            }
+            '"' => return '"',
+            _ => return '0',
+        }
     }
 
     fn get_operator(&mut self) -> Token {
@@ -668,6 +809,8 @@ impl Lexer {
             "append" => Token::Append,
             "len" => Token::Len,
             "cap" => Token::Cap,
+            "true" => Token::Bool(true),
+            "false" => Token::Bool(false),
             _ => Token::Ident("".to_string()),
         }
     }
@@ -677,9 +820,22 @@ impl Lexer {
             if self.chr == '\n' {
                 self.line += 1;
                 match self.prev_token {
-                    Token::Ident(_) | Token::Int(_) | Token::Float(_) | Token::Rune(_) | Token::String(_) | Token::Break | Token::Continue | Token::Fallthrough | Token::Return | Token::PlusPlus | Token::MinusMinus | Token::RParen | Token::RBrace | Token::RBrack => {
+                    Token::Ident(_)
+                    | Token::Int(_)
+                    | Token::Float(_)
+                    | Token::Rune(_)
+                    | Token::String(_)
+                    | Token::Break
+                    | Token::Continue
+                    | Token::Fallthrough
+                    | Token::Return
+                    | Token::PlusPlus
+                    | Token::MinusMinus
+                    | Token::RParen
+                    | Token::RBrace
+                    | Token::RBrack => {
                         self.chr = ';';
-                        return
+                        return;
                     }
                     _ => {}
                 }

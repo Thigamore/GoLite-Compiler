@@ -3,6 +3,8 @@ use std::{fs::File, io::BufReader};
 use lexer::{Lexer, Token};
 
 pub mod lexer;
+pub mod parser;
+pub mod ast;
 
 
 
