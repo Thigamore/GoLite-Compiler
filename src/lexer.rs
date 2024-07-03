@@ -249,7 +249,7 @@ impl Lexer {
         }
     }
 
-    pub fn peek(&mut self) -> &Token {
+    pub fn peek(&self) -> &Token {
         return &self.peek_tok;
     }
 
@@ -261,10 +261,13 @@ impl Lexer {
             return out;
         }
 
+        println!("{}", self.chr);
+        println!("Peek: {:?}", self.peek_tok);
         // Keywords and Identifiers
         if self.chr.is_alphabetic() {
             let name = self.get_ident();
             let tok = self.get_keyword(&name);
+            self.prev_token = tok.clone();
             self.skip_whitespace();
 
             if let Token::Ident(str) = tok {
@@ -274,6 +277,7 @@ impl Lexer {
                 self.peek_tok = Token::Ident(name);
                 return out;
             } else {
+                println!("{:?}", tok);
                 self.peek_tok = tok;
                 return out;
             }
@@ -286,6 +290,7 @@ impl Lexer {
                     'b' | 'B' => {
                         self.next_char();
                         let num = self.get_number(2);
+                        self.prev_token = Token::Int(num);
                         self.skip_whitespace();
                         self.peek_tok = Token::Int(num);
                         return out;
@@ -293,6 +298,7 @@ impl Lexer {
                     'x' | 'X' => {
                         self.next_char();
                         let num = self.get_number(16);
+                        self.prev_token = Token::Int(num);
                         self.skip_whitespace();
                         self.peek_tok = Token::Int(num);
                         return out;
@@ -300,6 +306,7 @@ impl Lexer {
                     'o' | 'O' => {
                         self.next_char();
                         let num = self.get_number(8);
+                        self.prev_token = Token::Int(num);
                         self.skip_whitespace();
                         self.peek_tok = Token::Int(num);
                         return out;
@@ -308,11 +315,13 @@ impl Lexer {
                 }
             }
             let num = self.get_number(10);
+            self.prev_token = Token::Empty;
             self.skip_whitespace();
 
             if self.chr == '.' {
                 self.next_char();
                 let decimal = self.get_number(10);
+                self.prev_token = Token::Empty;
                 self.skip_whitespace();
                 self.peek_tok = Token::Float(
                     (num.to_string() + "." + &decimal.to_string())
@@ -331,11 +340,13 @@ impl Lexer {
                 self.next_char();
                 if self.chr.is_digit(10) {
                     let num = self.get_number(10);
+                    self.prev_token = Token::Empty;
                     self.skip_whitespace();
 
                     if self.chr == '.' {
                         self.next_char();
                         let decimal = self.get_number(10);
+                        self.prev_token = Token::Empty;
                         self.skip_whitespace();
                         self.peek_tok = Token::Float(
                             ("-".to_owned() + &num.to_string() + "." + &decimal.to_string())
@@ -344,23 +355,26 @@ impl Lexer {
                         );
                         return out;
                     }
-                    self.peek_tok =  Token::Int(-1 * num);
+                    self.peek_tok = Token::Int(-1 * num);
                     return out;
                 } else {
                     match self.chr {
                         '=' => {
                             self.next_char();
+                            self.prev_token = Token::MinusEqual;
                             self.skip_whitespace();
                             self.peek_tok = Token::MinusEqual;
                             return out;
                         }
                         '-' => {
                             self.next_char();
+                            self.prev_token = Token::MinusMinus;
                             self.skip_whitespace();
-                            self.peek_tok=  Token::MinusMinus;
+                            self.peek_tok = Token::MinusMinus;
                             return out;
                         }
                         _ => {
+                            self.prev_token = Token::Minus;
                             self.skip_whitespace();
                             self.peek_tok = Token::Minus;
                             return out;
@@ -368,44 +382,52 @@ impl Lexer {
                     }
                 }
             }
-            self.peek_tok =  self.get_operator();
-            return out;
-        }
-        // Raw String
-        else if self.chr == '`' {
-            self.next_char();
-            let str = self.get_string();
-            self.peek_tok = Token::String(str);
-            return out;
-        }
-        // Strings
-        else if self.chr == '"' {
-            self.next_char();
-            let str = self.get_interpreted_string();
-            self.next_char();
-            self.skip_whitespace();
-            self.peek_tok =  Token::String(str);
-            return out;
-        }
-        // Rune
-        else if self.chr == '\'' {
-            self.next_char();
-            if self.chr == '\\' {
+            // Raw String
+            else if self.chr == '`' {
                 self.next_char();
-                let chr = self.get_escape();
-                if chr == '0' {
-                    self.peek_tok = Token::Error(chr.to_string(), self.line);
-                    return out;
-                }
-                self.next_char();
-                self.skip_whitespace();
-                self.peek_tok = Token::Rune(chr);
+                let str = self.get_string();
+                self.peek_tok = Token::String(str);
                 return out;
             }
-            let temp = self.chr;
-            self.next_char();
-            self.skip_whitespace();
-            self.peek_tok = Token::Rune(temp);
+            // Strings
+            else if self.chr == '"' {
+                self.next_char();
+                let str = self.get_interpreted_string();
+                self.next_char();
+                self.prev_token = Token::String("".to_string());
+                self.skip_whitespace();
+                self.peek_tok = Token::String(str);
+                return out;
+            }
+            // Rune
+            else if self.chr == '\'' {
+                self.next_char();
+                if self.chr == '\\' {
+                    self.next_char();
+                    let chr = self.get_escape();
+                    if chr == '0' {
+                        self.peek_tok = Token::Error(chr.to_string(), self.line);
+                        return out;
+                    }
+                    self.next_char();
+                    self.prev_token = Token::Rune(' ');
+                    self.skip_whitespace();
+                    self.peek_tok = Token::Rune(chr);
+                    return out;
+                }
+                let temp = self.chr;
+                self.next_char();
+                self.prev_token = Token::Rune(' ');
+                self.skip_whitespace();
+                self.peek_tok = Token::Rune(temp);
+                return out;
+            }
+            self.prev_token = Token::Empty;
+            let tok = self.get_operator();
+            if let Token::Empty = tok {
+            } else {
+                self.peek_tok = tok;
+            }
             return out;
         }
         // EOF
@@ -415,10 +437,9 @@ impl Lexer {
             return out;
         }
         // whitespace
-        else if self.chr == ' ' || self.chr == '\n' {
+        else if self.chr.is_whitespace() {
             self.skip_whitespace();
-            self.peek_tok = self.next_token();
-            return out;
+            return self.next_token();
         }
         // Error if ever gets here
         let temp = self.chr;
@@ -532,11 +553,13 @@ impl Lexer {
                     }
                     '/' => {
                         self.skip_comment();
-                        return self.next_token();
+                        self.next_token();
+                        return Token::Empty;
                     }
                     '*' => {
                         self.skip_multiline_comment();
-                        return self.next_token();
+                        self.next_token();
+                        return Token::Empty;
                     }
                     _ => {
                         self.skip_whitespace();

@@ -13,8 +13,8 @@ fn main() {
     let buf_reader = BufReader::new(f);
     let mut lex = Lexer::new(buf_reader);
     let mut tok = lex.next_token();
-    while tok != Token::EOF {
-        println!("{:?}", tok);
+    while !tok.same_type(&Token::EOF) {
+        println!("CURRENT: {:?}", tok);
         tok = lex.next_token();
     }
 }
