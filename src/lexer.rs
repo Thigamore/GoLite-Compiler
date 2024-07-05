@@ -247,6 +247,7 @@ impl Lexer {
         if !self.peek().same_type(tok) {
             panic!("Expected: {:?}; Got{:?}", self.peek(), tok);
         }
+        self.next_token();
     }
 
     pub fn peek(&self) -> &Token {

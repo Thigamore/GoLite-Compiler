@@ -34,13 +34,14 @@ pub enum Operand {
 }
 
 pub enum Statement {
+    SimpleStmt(SimpleStmt),
     Decl(Declaration),
     StmtList(Box<StmtList>),
-    PrintStmt(Expression),
+    PrintStmt(PrintType, Option<ExprList>),
     ReturnStmt(Option<Expression>),
-    IfStmt(Option<SimpleStmt>, Expression, Box<StmtList>, Box<Statement>),
+    IfStmt(Option<SimpleStmt>, Expression, Box<StmtList>, Option<Box<Statement>>),
     SwitchStmt(Option<SimpleStmt>, Option<Expression>, Vec<ExprCaseClause>),
-    ForStmt(Option<SimpleStmt>, Option<Expression>, Option<SimpleStmt>),
+    ForStmt(Option<ForClause>, StmtList),
     BreakStmt,
     ContinueStmt,
     FallthroughStmt,
@@ -48,16 +49,15 @@ pub enum Statement {
 
 pub enum SimpleStmt {
     ExprStmt(Expression),
-    IncDecStmt(Expression, Token),
-    Assignment(ExprList, Option<Token>, ExprList),
-    ShortValDecl(IdentList, ExprList),
+    IncDecStmt(Expression, IncDecType),
+    Assignment(ExprList, Option<Operator>, ExprList),
+    ShortValDecl(Vec<String>, ExprList),
     EmptyStmt,
 }
 
 pub enum Declaration {
-    Type,
-    Var,
-    Func(Token, Option<ParamList>, Option<Token>, Box<StmtList>),
+    Type(Vec<(String, Type)>),
+    Var(Vec<VarSpec>),
     Parameter,
     Array,
     Slice,
@@ -73,25 +73,74 @@ pub enum Literal {
     Function(Option<ParamList>, Option<Token>, StmtList)
 }
 
+pub enum Type {
+    Struct(String),
+    Array(i32, Box<Type>),
+    Slice(Box<Type>),
+    Integer,
+    Float,
+    String,
+    Bool,
+    Rune,
+}
+
+pub enum PrintType {
+    Print,
+    Println
+}
+
+pub enum IncDecType {
+    Inc,
+    Dec
+}
+
+pub enum Operator {
+    Plus,
+    Times,
+    Minus,
+    Divide,
+    Mod,
+    RShift,
+    LShift,
+    Xor,
+    AndNot,
+    And,
+}
+
 pub struct ExprList {
     expr: Expression,
     next: Expression,
 }
 
 pub struct ExprCaseClause {
-    expr: ExprList,
-    stmt: StmtList,
+    pub expr: Option<ExprList>,
+    pub stmt: StmtList,
 }
+
 
 pub struct StmtList {
-    stmt: Statement,
-    next: Statement,
-}
-
-pub struct IdentList {
-    idents: Vec<Token>,
+    pub stmts: Vec<Statement>
 }
 
 pub struct ParamList {
-    params: Vec<(IdentList, Token)>
+    pub params: Vec<(Vec<String>, Type)>
+}
+
+pub struct FuncLiteral {
+    pub params: Option<ParamList>,
+    pub ret: Option<Type>,
+    pub body: StmtList,
+}
+
+// Can be a for clause or just a plain expr
+pub struct ForClause {
+    pub stmt1: Option<SimpleStmt>,
+    pub expr: Option<Expression>,
+    pub stmt2: Option<SimpleStmt>
+}
+
+pub struct VarSpec {
+    pub ident_list: Vec<String>,
+    pub var_type: Type,
+    pub expr_list: Option<ExprList>
 }
