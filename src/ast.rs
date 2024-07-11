@@ -11,25 +11,24 @@ pub struct AST {
 }
 
 pub enum Expression {
-    Unary(Token, Box<Expression>),
-    Binary(Box<Expression>, Token, Box<Expression>),
-    SimpleExpr(Box<SimpleExpr>),
+    Unary(Operator, Box<Expression>),
+    Binary(Box<Expression>, Operator, Box<Expression>),
+    PrimaryExpr(Box<PrimaryExpr>),
 }
 
-pub enum SimpleExpr {
-    Append(Expression),
+pub enum PrimaryExpr {
+    Append(Expression, Expression),
     Length(Expression),
     Capacity(Expression),
     Operand(Operand),
-    Conversion(Token, Expression),
-    Selector(Box<SimpleExpr>, Token),
-    Index(Box<SimpleExpr>, Expression),
-    Call(Box<SimpleExpr>, Option<Token>, Option<ExprList>)
+    Selector(Box<PrimaryExpr>, String),
+    Index(Box<PrimaryExpr>, Expression),
+    Call(Option<Box<PrimaryExpr>>, Option<Type>, Option<ExprList>), // Used by conversion and call
 }
 
 pub enum Operand {
     Literal(Literal),
-    Op(Token),
+    Op(String),
     Expr(Expression),
 }
 
@@ -105,11 +104,22 @@ pub enum Operator {
     Xor,
     AndNot,
     And,
+    Not,
+    Or,
+    LogAnd,
+    LogOr,
+    EqualEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    NotEqual,
 }
 
+
+
 pub struct ExprList {
-    expr: Expression,
-    next: Expression,
+    pub exprs: Vec<Expression>
 }
 
 pub struct ExprCaseClause {

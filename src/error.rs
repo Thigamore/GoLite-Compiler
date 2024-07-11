@@ -9,3 +9,7 @@ pub fn token_type_err(got:&Token, expected: &Token) {
 pub fn ast_type_err(got: &str, expected: &str) {
     panic!("Expected: {:?}\nGot: {:?}", expected, got);
 }
+
+pub fn lit_err(got: &str, expected: &str) {
+    panic!("Expected: {:?}\nGot: {:?}", expected, got);
+}

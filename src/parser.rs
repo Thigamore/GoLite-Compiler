@@ -35,7 +35,6 @@ pub fn parse(lex: Lexer) -> ast::AST {
                     tok = lex.next_token();
                 }
             }
-            Token::Interface => todo!(),
             Token::Type => todo!(),
             Token::Var => todo!(),
             _ => error::token_type_err(&tok, &Token::Func )
@@ -45,7 +44,6 @@ pub fn parse(lex: Lexer) -> ast::AST {
     return None;
 }
 
-fn parse_decl(lex: Lexer) -> ast::Declaration {}
 
 fn parse_func(lex: &mut Lexer, func_env: &mut HashMap<String, ast::FuncLiteral>) {
     // Get the func name
@@ -116,6 +114,14 @@ fn parse_func(lex: &mut Lexer, func_env: &mut HashMap<String, ast::FuncLiteral>)
 
 fn parse_type(lex: &mut Lexer) -> ast::Type {
     match lex.peek() {
+        // Just another type
+        Token::LParen => {
+            lex.eat(&Token::LParen);
+            let temp = parse_type(lex);
+            lex.eat(&Token::RParen);
+            return temp;
+        }
+
         // Types
         Token::Ident(name) => {
             match name as &str {
@@ -245,6 +251,7 @@ fn parse_stmt(lex: &mut Lexer) -> ast::Statement {
                     expr = temp;
                 } else {
                     error::ast_type_err("IDK Something else", "Expression");
+                    todo!();
                 }
                 simple = None;
             } else {
@@ -276,21 +283,24 @@ fn parse_stmt(lex: &mut Lexer) -> ast::Statement {
             lex.next_token();
 
             // Check if there's a simple stmt or expressoin
-            let mut simple;
+            let simple;
+            let simple_final;
             let expr;
             if lex.peek().same_type(&Token::LBrace) {
-                simple = None;
+                simple_final = None;
                 expr = None;
             } else {
                 simple = Some(parse_simple_stmt(lex));
                 if lex.peek().same_type(&Token::Semicolon) {
+                    simple_final = simple;
                     expr = Some(parse_expr(lex));
                 } else {
                     if let ast::SimpleStmt::ExprStmt(expr2) = simple.unwrap() {
                         expr = Some(expr2);
-                        simple = None;
+                        simple_final = None;
                     } else {
                         error::ast_type_err("IDK Something else", "Expression");
+                        todo!();
                     }
                 }
             }
@@ -320,7 +330,7 @@ fn parse_stmt(lex: &mut Lexer) -> ast::Statement {
                 }
             }
             lex.eat(&Token::RBrace);
-            return ast::Statement::SwitchStmt(simple, expr, cases);
+            return ast::Statement::SwitchStmt(simple_final, expr, cases);
         }
         Token::For => {
             lex.eat(&Token::For);
@@ -575,7 +585,10 @@ fn parse_simple_stmt(lex: &mut Lexer) -> ast::SimpleStmt {
                         Token::AndNot => op = Some(ast::Operator::AndNot),
                         Token::Amper => op = Some(ast::Operator::And),
                         Token::Equal => op = None,
-                        _ => error::token_type_err(lex.peek(), &Token::Equal),
+                        _ => {
+                            error::token_type_err(lex.peek(), &Token::Equal);
+                            todo!();
+                        },
                     }
                     lex.eat(&Token::Equal);
                     return ast::SimpleStmt::Assignment(expr_list, op, parse_expr_list(lex, None));
@@ -592,13 +605,276 @@ fn parse_simple_stmt(lex: &mut Lexer) -> ast::SimpleStmt {
 }
 
 fn parse_expr_list(lex: &mut Lexer, first: Option<ast::Expression>) -> ast::ExprList {
-    return todo!();
+    let expr;
+    if let Some(expr1) = first {
+        expr = expr1;
+    } else {
+        expr = parse_expr(lex);
+    }
+    let mut list = Vec::new();
+    list.push(expr);
+    while lex.peek().same_type(&Token::Comma) {
+        lex.eat(&Token::Comma);
+        list.push(parse_expr(lex));
+    }
+    return ast::ExprList{
+        exprs: list,
+    };
 }
 
 fn parse_expr(lex: &mut Lexer) -> ast::Expression {
-    return todo!();
+    let left;
+    match lex.peek() {
+        // Unary Exprs
+        Token::Plus => {
+            lex.eat(&Token::Plus);
+            left = ast::Expression::Unary(ast::Operator::Plus, Box::from(parse_unary(lex)));
+        }
+        Token::Minus => {
+            lex.eat(&Token::Minus);
+            left = ast::Expression::Unary(ast::Operator::Minus, Box::from(parse_unary(lex)));
+        }
+        Token::Bang => {
+            lex.eat(&Token::Bang);
+            left = ast::Expression::Unary(ast::Operator::Not, Box::from(parse_unary(lex)));
+        }
+        Token::Xor => {
+            lex.eat(&Token::Xor);
+            left = ast::Expression::Unary(ast::Operator::Xor, Box::from(parse_unary(lex)));
+        }
+        Token::Aster => {
+            lex.eat(&Token::Aster);
+            left = ast::Expression::Unary(ast::Operator::Times, Box::from(parse_unary(lex)));
+        }
+        Token::Amper => {
+            lex.eat(&Token::Amper);
+            left = ast::Expression::Unary(ast::Operator::And, Box::from(parse_unary(lex)));
+        }
+        // PrimaryExpr
+        _ => {
+            left = ast::Expression::PrimaryExpr(Box::from(parse_primary(lex)));
+        }
+    }
+    // binary op if exists
+    let op;
+
+    // check if expr is 
+    match lex.peek() {
+        Token::Aster => op = ast::Operator::Times,
+        Token::FSlash => op = ast::Operator::Divide,
+        Token::Percent => op = ast::Operator::Mod,
+        Token::Amper => op = ast::Operator::And,
+        Token::Or => op = ast::Operator::Or,
+        Token::Xor => op = ast::Operator::Xor,
+        Token::LShift => op = ast::Operator::LShift,
+        Token::RShift => op = ast::Operator::RShift,
+        Token::AndNot => op = ast::Operator::AndNot,
+        Token::LogAnd => op = ast::Operator::LogAnd,
+        Token::LogOr => op = ast::Operator::LogOr,
+        Token::EqualEqual => op = ast::Operator::EqualEqual,
+        Token::Less => op = ast::Operator::Less,
+        Token::Greater => op = ast::Operator::Greater,
+        Token::BangEqual => op = ast::Operator::NotEqual,
+        Token::LessEqual => op = ast::Operator::LessEqual,
+        Token::GreaterEqual => op = ast::Operator::GreaterEqual,
+        _ => {
+            return left;
+        }
+    }
+    lex.next_token();
+
+    // get right expr
+    let right;
+
+    match lex.peek() {
+        // Unary Exprs
+        Token::Plus => {
+            lex.eat(&Token::Plus);
+            right = ast::Expression::Unary(ast::Operator::Plus, Box::from(parse_unary(lex)));
+        }
+        Token::Minus => {
+            lex.eat(&Token::Minus);
+            right = ast::Expression::Unary(ast::Operator::Minus, Box::from(parse_unary(lex)));
+        }
+        Token::Bang => {
+            lex.eat(&Token::Bang);
+            right = ast::Expression::Unary(ast::Operator::Not, Box::from(parse_unary(lex)));
+        }
+        Token::Xor => {
+            lex.eat(&Token::Xor);
+            right = ast::Expression::Unary(ast::Operator::Xor, Box::from(parse_unary(lex)));
+        }
+        Token::Aster => {
+            lex.eat(&Token::Aster);
+            right = ast::Expression::Unary(ast::Operator::Times, Box::from(parse_unary(lex)));
+        }
+        Token::Amper => {
+            lex.eat(&Token::Amper);
+            right = ast::Expression::Unary(ast::Operator::And, Box::from(parse_unary(lex)));
+        }
+        // PrimaryExpr
+        _ => {
+            right = ast::Expression::PrimaryExpr(Box::from(parse_primary(lex)));
+        }
+    }
+    
+    return ast::Expression::Binary(Box::from(left), op, Box::from(right));
 }
 
-fn parse_type(lex: &mut Lexer) -> ast::Type {
-    return todo!();
+fn parse_unary(lex: &mut Lexer) -> ast::Expression {
+    match lex.peek() {
+        // Unary Exprs
+        Token::Plus => {
+            lex.eat(&Token::Plus);
+            return ast::Expression::Unary(ast::Operator::Plus, Box::from(parse_unary(lex)));
+        }
+        Token::Minus => {
+            lex.eat(&Token::Minus);
+            return ast::Expression::Unary(ast::Operator::Minus, Box::from(parse_unary(lex)));
+        }
+        Token::Bang => {
+            lex.eat(&Token::Bang);
+            return ast::Expression::Unary(ast::Operator::Not, Box::from(parse_unary(lex)));
+        }
+        Token::Xor => {
+            lex.eat(&Token::Xor);
+            return ast::Expression::Unary(ast::Operator::Xor, Box::from(parse_unary(lex)));
+        }
+        Token::Aster => {
+            lex.eat(&Token::Aster);
+            return ast::Expression::Unary(ast::Operator::Times, Box::from(parse_unary(lex)));
+        }
+        Token::Amper => {
+            lex.eat(&Token::Amper);
+            return ast::Expression::Unary(ast::Operator::And, Box::from(parse_unary(lex)));
+        }
+        // PrimaryExpr
+        _ => {
+            return ast::Expression::PrimaryExpr(Box::from(parse_primary(lex)));
+        }
+    }
+}
+
+fn parse_primary(lex: &mut Lexer) -> ast::PrimaryExpr {
+    let prim_expr;
+    match lex.peek() {
+        // The functions added
+        Token::Append => {
+            lex.eat(&Token::Append);
+            lex.eat(&Token::LParen);
+            let expr1 = parse_expr(lex);
+            lex.eat(&Token::Comma);
+            let expr2 = parse_expr(lex);
+            lex.eat(&Token::RParen);
+            return ast::PrimaryExpr::Append(expr1, expr2);
+        }
+        Token::Cap => {
+            lex.eat(&Token::Cap);
+            lex.eat(&Token::LParen);
+            let expr = parse_expr(lex);
+            lex.eat(&Token::RParen);
+            return ast::PrimaryExpr::Capacity(expr);
+        }
+        Token::Len => {
+            lex.eat(&Token::Len);
+            lex.eat(&Token::LParen);
+            let expr = parse_expr(lex);
+            lex.eat(&Token::RParen);
+            return ast::PrimaryExpr::Length(expr);
+        }
+        
+        // Type Conversion
+        Token::LBrack => {
+            let conv_type = parse_type(lex);
+            lex.eat(&Token::LParen);
+            let expr = parse_expr(lex);
+            lex.eat(&Token::RParen);
+            return ast::PrimaryExpr::Call(None, Some(conv_type), Some(ast::ExprList{exprs: vec![expr]}));
+        } 
+        
+        // Either Conversion or Operand
+        Token::LParen => {
+            lex.eat(&Token::LParen);
+            
+            // either an expression or a type
+            // TODO IDK what to do here
+            // Get rid of all parenths
+            // If left bracket then def a type
+            // If ident, could be either
+            // if Lparen, could be either????? FFFFFFF
+            // Otherwise def an expr
+            // I GIVE UP
+            // We just doing an expr and ident will just be the thing below
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Expr(parse_expr(lex)));
+
+            lex.eat(&Token::RParen);
+        }
+
+        // Operand OpName
+        Token::Ident(name) => {
+            let ident_name = name.to_string();
+            lex.next_token();
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Op(ident_name));
+        }
+
+        // Operand Literal
+        Token::Int(num) => {
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Literal(ast::Literal::Integer(num.clone())));
+        }
+        Token::Float(num) => {
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Literal(ast::Literal::Float(num.clone())));
+        }
+        Token::String(word) => {
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Literal(ast::Literal::String(word.clone())));
+        }
+        Token::Rune(character) => {
+            prim_expr = ast::PrimaryExpr::Operand(ast::Operand::Literal(ast::Literal::Rune(character.clone())));
+        }
+        _ => {
+            error::token_type_err(lex.peek(),&Token::Ident("".to_string()) );
+            todo!();
+        }
+    }
+
+    // Check if there's a selector/index/call
+    match lex.peek() {
+        // Selector
+        Token::Period => {
+            lex.eat(&Token::Period);
+            if let Token::Ident(name) = lex.peek() {
+                return ast::PrimaryExpr::Selector(Box::from(prim_expr), name.to_string());
+            } else {
+                error::token_type_err(lex.peek(), &Token::Ident("".to_string()));
+                todo!();
+            }
+        }
+
+        // Call
+        Token::LParen => {
+            lex.eat(&Token::LParen);
+            if lex.peek().same_type(&Token::RParen) {
+                lex.eat(&Token::RParen);
+                return ast::PrimaryExpr::Call(Some(Box::from(prim_expr)), None, None);
+            } 
+            let expr_list = parse_expr_list(lex, None);
+            lex.eat(&Token::RParen);
+            return ast::PrimaryExpr::Call(Some(Box::from(prim_expr)), None, Some(expr_list));
+        }
+
+        // Index
+        Token::LBrack => {
+            lex.eat(&Token::LBrack);
+            let expr = parse_expr(lex);
+            lex.eat(&Token::RBrack);
+            return ast::PrimaryExpr::Index(Box::from(prim_expr), expr);
+        }
+
+        _ => {
+            return prim_expr;
+        }
+    }
+}
+
+fn parse_decl(lex: Lexer) -> ast::Declaration {
+
 }
