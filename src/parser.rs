@@ -8,12 +8,12 @@ use crate::lexer::Lexer;
 use super::ast;
 use super::Token;
 
-pub fn parse(lex: Lexer) -> ast::AST {
+pub fn parse(lex: &mut Lexer) -> ast::AST {
     let mut package: String;
     let mut main: ast::Declaration;
     let mut func_env: HashMap<String, ast::FuncLiteral> = HashMap::new();
-    let mut val_env: HashMap<String, ast::FuncLiteral> = HashMap::new();
-    let mut type_env: HashMap<String, ast::FuncLiteral> = HashMap::new();
+    let mut var_env: HashMap<String, ast::> = HashMap::new();
+    let mut type_env: HashMap<String, ast::Type> = HashMap::new();
 
     // Find the package
     lex.eat(&Token::Package);
@@ -24,24 +24,32 @@ pub fn parse(lex: Lexer) -> ast::AST {
 
     let mut tok = lex.next_token();
 
+    // Parse whole file
     while tok != Token::EOF {
         match tok {
             Token::Const => todo!(),
             Token::Func => {
-                parse_func(&mut lex, &mut func_env);
+                parse_func(lex, &mut func_env);
             }
             Token::Import => {
                 while !tok.same_type(&Token::Semicolon) {
                     tok = lex.next_token();
                 }
             }
-            Token::Type => todo!(),
-            Token::Var => todo!(),
+            
+            // Type Declaration
+            Token::Type => {
+                
+            },
+            // Var Declaration
+            Token::Var => {
+
+            },
             _ => error::token_type_err(&tok, &Token::Func )
         }
     }
 
-    return None;
+    todo!();
 }
 
 
@@ -54,6 +62,7 @@ fn parse_func(lex: &mut Lexer, func_env: &mut HashMap<String, ast::FuncLiteral>)
         func_name = name;
     } else {
         error::token_type_err(&tok, &Token::Ident("".to_string()));
+        todo!();
     }
     lex.eat(&Token::LParen);
 
@@ -110,6 +119,8 @@ fn parse_func(lex: &mut Lexer, func_env: &mut HashMap<String, ast::FuncLiteral>)
         ret,
         body: parse_stmt_list(lex),
     };
+
+    func_env.insert(func_name, lit);
 }
 
 fn parse_type(lex: &mut Lexer) -> ast::Type {
@@ -875,6 +886,10 @@ fn parse_primary(lex: &mut Lexer) -> ast::PrimaryExpr {
     }
 }
 
-fn parse_decl(lex: Lexer) -> ast::Declaration {
+fn parse_type_decl(lex: &mut Lexer, type_env: &mut )  {
+
+}
+
+fn parse_var_decl(lex: &mut Lexer) {
 
 }
