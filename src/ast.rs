@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, string};
 
 use super::Token;
 
@@ -65,13 +65,14 @@ pub enum Declaration {
 
 pub enum Literal {
     Integer(i32),
-    Float(f32),
+    Float(f64),
     Rune(char),
     String(String),
     Bool(bool),
     Function(Option<ParamList>, Option<Token>, StmtList)
 }
 
+#[derive(Clone, Debug)]
 pub enum Type {
     Struct(String),
     Array(i32, Box<Type>),
@@ -81,6 +82,11 @@ pub enum Type {
     String,
     Bool,
     Rune,
+}
+
+pub enum TypeDecl {
+    Struct(HashMap<String, Type>),
+    Primitive(Type)
 }
 
 pub enum PrintType {
@@ -151,6 +157,22 @@ pub struct ForClause {
 
 pub struct VarSpec {
     pub ident_list: Vec<String>,
-    pub var_type: Type,
+    pub var_type: Option<Type>,
     pub expr_list: Option<ExprList>
+}
+
+pub enum VarValue {
+    Int(i32),
+    Float(f32),
+    Rune(char),
+    String(String),
+    Bool(bool),
+    Struct(HashMap<String, VarValue>),
+    Array(Vec<VarValue>),
+}
+
+impl AST {
+    pub fn print() {
+
+    }
 }
